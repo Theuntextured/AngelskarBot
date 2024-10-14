@@ -2,6 +2,8 @@ import discord
 from discord.ext import commands
 import bot_settings
 
+IS_ADMIN_COMMAND = "admin_command"
+
 class Team:
     def __init__(self, name:str, symbol:str = "") -> None:
         self.members = []
@@ -47,7 +49,7 @@ class Team:
         if len(self.standins) > 0:
             out = f"{out}\n **Stand-ins:**"
             for m in self.standins:
-                out = f"{out}\n* {m.display_name} (Stand-in)"
+                out = f"{out}\n* {m.display_name}"
             out = out + "\n"
 
         if self.guest_count > 0:
@@ -113,7 +115,7 @@ class Bot(commands.Bot):
 
         if channel == None:
             return
-        
+
         await channel.purge(limit = 10, check=lambda m : m.author == bot.user)
 
         to_send = "# **__ROSTERS__**\n\n"
@@ -123,6 +125,51 @@ class Bot(commands.Bot):
                 to_send = to_send + t.get_info_string() + "\n"
 
         await channel.send(to_send)
+
+    async def update_staff_channel(self):
+        channel: discord.TextChannel = self.bot_settings.get_staff_channel()
+
+        if channel == None:
+            return
+
+        await channel.purge(limit=10, check=lambda m: m.author == bot.user)
+
+        to_send = "# **__STAFF__**"
+
+        roles_to_display = ["Owner", "Co-owner", "Head Admin", "Admin", "Head Moderator", "Moderator", "Twitch Moderator", "Caster", "Developer", "Editor"]
+
+        staff = {}
+        roles:dict[str, list[discord.Member]] = {}
+
+        for r in roles_to_display:
+            role_obj = discord.utils.get(self.angelskar_guild.roles, name = r)
+            for u in role_obj.members:
+                if u not in staff:
+                    staff[u] = [r]
+                    if r in roles:
+                        roles[r].append(u)
+                    else:
+                        roles[r] = [u]
+                else:
+                    staff[u].append(r)
+
+        for r in roles_to_display:
+            if r not in roles:
+                continue
+            if len(roles[r]) == 0:
+                continue
+            to_send = f"{to_send}\n# {r}"
+            for u in roles[r]:
+                to_send = f"{to_send}\n* {u.display_name}"
+
+                if len(staff[u]) > 1:
+                    to_send = to_send + " _(Also "
+                    for i in range(1, len(staff[u])):
+                        to_send = to_send + staff[u][i] + ", "
+                    to_send = to_send[:-2] + ")_"
+        
+        await channel.send(to_send)
+
 
     async def log_message(self, message:str) -> bool:
         if len(message) == 0:
@@ -166,15 +213,16 @@ bot = Bot(intents=discord.Intents.all(), command_prefix="/")
 async def hello(ctx):
     await ctx.send("Hello world.")
 
-@bot.tree.command(name="help",description="Prints some information about the bot and commands available.")
+@bot.tree.command(name="help",description="Prints some information about the bot and available commands.")
 async def help(interaction:discord.Interaction):
-    out = "# AngelSkar Bot Help\n"
+    out = "# AngelSkar Bot Help\n[Source Code](<https://github.com/Theuntextured/AngelskarBot>)\n"
     out = out + "## Available Commands:\n"
     for c in bot.tree.get_commands():
-        out = out + f"* `/{c.name}`: {c.description}\n"
+        if (interaction.permissions.manage_guild) or (IS_ADMIN_COMMAND not in c.extras):
+            out = out + f"* `/{c.name}`: {c.description}\n"
     await interaction.response.send_message(out)
 
-@bot.tree.command(name="logchannel", description="Sets the log channel to use.", )
+@bot.tree.command(name="logchannel", description="Displays or sets the log channel to use", extras={IS_ADMIN_COMMAND: True})
 async def log_channel(interaction:discord.Interaction, channel:discord.TextChannel = None):
     if channel == None:
         c = bot.bot_settings.get_log_channel()
@@ -192,7 +240,7 @@ async def log_channel(interaction:discord.Interaction, channel:discord.TextChann
         await interaction.response.send_message(message)
         await channel.send(message)
 
-@bot.tree.command(name="rosterchannel", description="Sets the roster channel to use.", )
+@bot.tree.command(name="rosterchannel", description="Displays the roster channel to use. If you have the required permissions, you can set it.")
 async def roster_channel(interaction:discord.Interaction, channel:discord.TextChannel = None):
     if channel == None:
         c = bot.bot_settings.get_roster_channel()
@@ -205,10 +253,29 @@ async def roster_channel(interaction:discord.Interaction, channel:discord.TextCh
             await interaction.response.send_message("Insufficient permissions to run the command.")
             return
 
-        if bot.bot_settings.set_roster_channel(channel):
-            await bot.update_roster_channel()
+        bot.bot_settings.set_roster_channel(channel)
+        await bot.update_roster_channel()
 
         message = f"Linked the roster to channel {channel.mention}"
+        await interaction.response.send_message(message)
+
+@bot.tree.command(name="staffchannel", description="Displays the staff channel to use. If you have the required permissions, you can set it.")
+async def staff_channel(interaction:discord.Interaction, channel:discord.TextChannel = None):
+    if channel == None:
+        c = bot.bot_settings.get_staff_channel()
+        if c == None:
+            await interaction.response.send_message("The staff channel is currently not linked.")
+        else:
+            await interaction.response.send_message(f"The staff channel is currently linked to {c.mention}")
+    else:
+        if not interaction.permissions.manage_guild:
+            await interaction.response.send_message("Insufficient permissions to run the command.")
+            return
+
+        bot.bot_settings.set_staff_channel(channel)
+        await bot.update_staff_channel()
+
+        message = f"Linked the staff to channel {channel.mention}"
         await interaction.response.send_message(message)
 
 @bot.event
@@ -216,22 +283,26 @@ async def on_ready():
     await bot.tree.sync()
     await bot.log_message("Bot started!")
     bot.angelskar_guild = discord.utils.get(bot.guilds, id=1049126797465362523)
+
     await bot.update_teams()
+    await bot.update_staff_channel()
 
 @bot.event
 async def on_member_update(before:discord.Member, after:discord.Member):
-    #inefficient but fuck you
+    # inefficient but fuck you
     if before.roles == after.roles:
         return
     for t in bot.teams.values():
         t.update_members()
     await bot.update_roster_channel()
+    await bot.update_staff_channel()
 
 @bot.event
 async def on_member_remove(member:discord.Member):
     for t in bot.teams.values():
         t.update_members()
     await bot.update_roster_channel()
+    await bot.update_staff_channel()
 
 @bot.event
 async def on_guild_update(before:discord.Guild, after:discord.Guild):
@@ -240,3 +311,4 @@ async def on_guild_update(before:discord.Guild, after:discord.Guild):
     if before.roles == after.roles and before.voice_channels == after.voice_channels:
         return
     await bot.update_teams()
+    await bot.update_staff_channel()
