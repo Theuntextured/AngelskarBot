@@ -1,7 +1,0 @@
-# fly.toml app configuration file generated for angelskar-bot on 2024-10-15T01:32:49+02:00
-#
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
-
-app = 'angelskar-bot'
-primary_region = 'cdg'
