@@ -1,8 +1,4 @@
-import bot
-import discord
-
-def main() -> None:
-    bot.bot.start_bot()
+from bot import bot
 
 if __name__ == "__main__":
-    main()
+    bot.start_bot()

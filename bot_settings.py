@@ -1,6 +1,5 @@
 import pickle
 import discord
-from discord.ext import commands as ecmd
 
 bot:discord.Client = None
 
@@ -9,18 +8,30 @@ DATA_FILE = "bot_data.pickle"
 class BotSettings:
     def __init__(self):
         self.log_channel = -1
+        self.roster_channel = -1
 
     def save(self):
         global DATA_FILE
         with open(DATA_FILE, "wb") as file:
             pickle.dump(self, file)
-        
+
     def get_log_channel(self) -> discord.TextChannel:
         return bot.get_channel(self.log_channel)
-    
-    def set_log_channel(self, channel : discord.TextChannel) -> None:
+
+    def set_log_channel(self, channel: discord.TextChannel) -> None:
         self.log_channel = channel.id
         self.save()
+
+    def get_roster_channel(self) -> discord.TextChannel:
+        return bot.get_channel(self.roster_channel)
+
+    def set_roster_channel(self, channel: discord.TextChannel) -> bool:
+        if self.roster_channel == channel.id:
+            return False
+        self.roster_channel = channel.id
+        self.save()
+        return True
+
 
 def load():
     try:
