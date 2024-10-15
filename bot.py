@@ -1,8 +1,6 @@
 import discord
 from discord.ext import commands
 import bot_settings
-import scheduling
-
 import os
 
 IS_ADMIN_COMMAND = "admin_command"
@@ -24,8 +22,7 @@ class Team:
         return len(self.members) > 0 and self.captain != None
 
     def __str__(self):
-        return self.name
-    
+        return self.name 
 
     def get_info_string(self) -> str:
         out = f"# {self.symbol} | {self.name}"
@@ -102,7 +99,6 @@ class Team:
             self.guest_count = len(discord.utils.get(bot.angelskar_guild.roles, name= self.name + " Guest").members)
         except:
             self.guest_count = 0
-
 
 class Bot(commands.Bot):
     angelskar_guild:discord.Guild = None
@@ -219,33 +215,7 @@ class Bot(commands.Bot):
 
         await self.update_roster_channel()
 
-
 bot = Bot(intents=discord.Intents.all(), command_prefix="/")
-
-@bot.command()
-async def hello(ctx):
-    await ctx.send("Hello world.")
-
-@bot.event
-async def on_ready():
-    print(f'Logged in as {bot.user}')
-
-async def findchannel(ctx, category_name: str, channel_name: str):
-# Find the category by name
-    category = discord.utils.get(ctx.guild.categories, name=category_name)
-    
-    if category is None:
-        await ctx.send('Category not found.')
-        return
-
-# Find the channel in that category
-    channel = discord.utils.get(category.channels, name=channel_name)
-    
-    if channel is None:
-        await ctx.send('Channel not found in this category.')
-    else:
-        await ctx.send(f'Channel found: <#{channel.id}>')
-
 
 @bot.tree.command(name="help",description="Prints some information about the bot and available commands.")
 async def help(interaction:discord.Interaction):
@@ -311,6 +281,20 @@ async def staff_channel(interaction:discord.Interaction, channel:discord.TextCha
 
         message = f"Linked the staff to channel {channel.mention}"
         await interaction.response.send_message(message)
+
+@bot.tree.command(name="createprac", description="Creates a new practice schedule")
+async def create_prac(interaction:discord.Interaction, channel:discord.TextChannel = None):
+    category_name = '| Shankz |'  # Replace with the actual category name
+
+    category = discord.utils.get(bot.angelskar_guild.categories, name=category_name)
+    for schedule_channel in category.text_channels:
+        if "schedule" in schedule_channel.name:
+            break
+
+    if channel:
+        await interaction.response.send_message("New prac awaiting to be scheduled")
+    else:
+        await interaction.response.send_message("Unable to locate channel")
 
 @bot.event
 async def on_ready():
