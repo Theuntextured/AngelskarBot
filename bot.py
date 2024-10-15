@@ -304,7 +304,7 @@ async def staff_channel(interaction:discord.Interaction, channel:discord.TextCha
         message = f"Linked the staff to channel {channel.mention}"
         await interaction.response.send_message(message)
 
-        
+@bot.tree.command(name="createprac", description="Schedule a practice session.")
 async def create_prac(ctx,channel: discord.TextChannel, date: str, time: str):
     # Combine the date and time strings into a single string for easier parsing
     datetime_str =date +" " +time
