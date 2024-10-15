@@ -2,9 +2,13 @@ import discord
 from discord.ext import commands
 import bot_settings
 import os
+import pytz
 from datetime import datetime
+import time
+import timezones
 IS_ADMIN_COMMAND = "admin_command"
 months = ["January","February","March","April","May","June","July","August","September","October","November","December"]
+
 class Team:
     def __init__(self, name:str, symbol:str = "", category:discord.CategoryChannel = None) -> None:
         self.members = []
@@ -304,42 +308,45 @@ async def staff_channel(interaction:discord.Interaction, channel:discord.TextCha
         message = f"Linked the staff to channel {channel.mention}"
         await interaction.response.send_message(message)
 
+import pytz
+from datetime import datetime
+
 @bot.tree.command(name="createprac", description="Schedule a practice session.")
-async def create_prac(ctx,channel: discord.TextChannel, date: str, time: str):
-    # Combine the date and time strings into a single string for easier parsing
-    datestr = []
+async def create_prac(ctx, channel: discord.TextChannel, date: str, time: str, timezone: str, role: discord.Role):
+    # Split the date and time strings for parsing
     datestr = date.split("-")
     day = datestr[0]
-    backnum = [x for x in day]
-    ending = backnum[1]
-    if backnum[0]!= "1":
-        if ending=="1":
-            ending = "st"
-        elif ending == "2":
-            ending = "nd"
-        elif ending == "3":
-            ending = "rd"
-        else:
-            ending = "th"
-    else:
-        ending = "th"
-    month = months[int(datestr[1])-1]
+    timed = time.split(":")
+    hours = int(timed[0])
+    minutes = int(timed[1])
+    # month = months[int(datestr[1])-1]
 
 
-    # datetime_str =date +" " +time
-    
+
     try:
-        # Try to parse the date and time string into a datetime object
-        # event_time = datetime.strptime(datetime_str, '%d-%m %H:%M')
-
-        # Send the message to the chosen channel
-        await channel.send(f"Date and time set to: " + day+ending + " " + month + " at " + time)
-
-        # Send confirmation message to user in channel that command is executed
-        await ctx.response.send_message("Practice Scheduled")
+        naive_datetime = datetime(int(datestr[2]), int(datestr[1]), int(day), hours, minutes)
+        try:
+            user_timezone = pytz.timezone(timezone)
+        except:
+            await ctx.response.send_message("Invalid timezone! Please use the format `Europe/London` etc, and a valid timezone.")
+        localized_datetime = user_timezone.localize(naive_datetime)
+        
+        utc_datetime = localized_datetime.astimezone(pytz.utc)
+        
+        # Generate the timestamp for Discord formatting
+        timestamp = int(utc_datetime.timestamp())
+        
+        # Send the message to the chosen channel with the converted timestamp
+        await channel.send(f"{role.mention} Practice Scheduled for: <t:{timestamp}:F>")
+        
+        # Send confirmation message to the user who ran the command
+        await ctx.response.send_message(f"{role.mention} Practice successfully scheduled for {localized_datetime.strftime('%d %B %Y %H:%M %Z')} (your local time).")
+    
     except ValueError:
-        # Handle invalid input with an error message
-        await ctx.response.send_message("Invalid date or time format! Use the format `DD-MM HH:MM`.")
+        # Handle invalid date, time, or timezone input
+        await ctx.response.send_message("Invalid date, time, or timezone format! Please use the format `DD-MM-YYYY HH:MM` and a valid timezone.")
+
+
 
 @bot.event
 async def on_ready():
