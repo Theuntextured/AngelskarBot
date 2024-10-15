@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 import bot_settings
+import os
 
 IS_ADMIN_COMMAND = "admin_command"
 
@@ -55,7 +56,11 @@ class Team:
             out = out + "\n"
 
         if self.guest_count > 0:
-            out = f"{out}\n{self.guest_count} {"Guest" if self.guest_count == 1 else "Guests"}\n"
+            if self.guest_count > 1:
+                g = "Guests"
+            else:
+                g = "Guest"
+            out = f"{out}\n{self.guest_count} {g}\n"
 
         return out
 
@@ -112,7 +117,10 @@ class Bot(commands.Bot):
             with open("token.txt") as file:
                 token = file.read()
         except:
-            return
+            try:
+                token = os.environ["TOKEN"]
+            except:
+                return
         self.run(token)
 
     async def update_roster_channel(self):
