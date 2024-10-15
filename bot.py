@@ -106,7 +106,6 @@ class Bot(commands.Bot):
     angelskar_guild:discord.Guild = None
     teams:dict[str, Team] = dict()
 
-    bot = commands.Bot(command_prefix='!')
 
 
     def start_bot(self):
