@@ -109,6 +109,15 @@ class Team:
 class Bot(commands.Bot):
     angelskar_guild:discord.Guild = None
     teams:dict[str, Team] = dict()
+    #used to return value from get_last_message since the function returns coro
+    target_message = None
+
+    async def get_last_message(self, channel:discord.TextChannel):
+        l = [message async for message in channel.history(limit=5)]
+        for i in l:
+            if i.author == self.user:
+                self.target_message = i
+        self.target_message = None
 
     def start_bot(self):
         bot_settings.bot = self
@@ -129,7 +138,8 @@ class Bot(commands.Bot):
         if channel == None:
             return
 
-        await channel.purge(limit = 10, check=lambda m : m.author == bot.user)
+        await self.get_last_message(channel)
+        last_message = self.target_message
 
         to_send = "# **__ROSTERS__**\n\n"
 
@@ -137,15 +147,17 @@ class Bot(commands.Bot):
             if t.is_valid_team():
                 to_send = to_send + t.get_info_string() + "\n"
 
-        await channel.send(to_send)
+        if last_message and last_message.author == self.user:
+            await last_message.edit(to_send)
+        else:
+            await channel.purge(limit=10, check=lambda m: m.author == bot.user)
+            await channel.send(to_send)
 
     async def update_staff_channel(self):
         channel: discord.TextChannel = self.bot_settings.get_staff_channel()
 
         if channel == None:
             return
-
-        await channel.purge(limit=10, check=lambda m: m.author == bot.user)
 
         to_send = "# **__STAFF__**"
 
@@ -180,9 +192,15 @@ class Bot(commands.Bot):
                     for i in range(1, len(staff[u])):
                         to_send = to_send + staff[u][i] + ", "
                     to_send = to_send[:-2] + ")_"
-        
-        await channel.send(to_send)
 
+        await self.get_last_message(channel)
+        last_message = self.target_message
+
+        if last_message and last_message.author == self.user:
+            last_message.edit(to_send)
+        else:
+            await channel.purge(limit=10, check=lambda m: m.author == bot.user)
+            await channel.send(to_send)
 
     async def log_message(self, message:str) -> bool:
         if len(message) == 0:
