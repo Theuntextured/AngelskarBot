@@ -4,7 +4,7 @@ import bot_settings
 import os
 from datetime import datetime
 IS_ADMIN_COMMAND = "admin_command"
-
+months = ["January","February","March","April","May","June","July","August","September","October","November","December"]
 class Team:
     def __init__(self, name:str, symbol:str = "", category:discord.CategoryChannel = None) -> None:
         self.members = []
@@ -307,14 +307,33 @@ async def staff_channel(interaction:discord.Interaction, channel:discord.TextCha
 @bot.tree.command(name="createprac", description="Schedule a practice session.")
 async def create_prac(ctx,channel: discord.TextChannel, date: str, time: str):
     # Combine the date and time strings into a single string for easier parsing
-    datetime_str =date +" " +time
+    datestr = []
+    datestr = date.split("-")
+    day = datestr[0]
+    backnum = [x for x in day]
+    ending = backnum[1]
+    if backnum[0]!= "1":
+        if ending=="1":
+            ending = "st"
+        elif ending == "2":
+            ending = "nd"
+        elif ending == "3":
+            ending = "rd"
+        else:
+            ending = "th"
+    else:
+        ending = "th"
+    month = months[int(datestr[1])-1]
+
+
+    # datetime_str =date +" " +time
     
     try:
         # Try to parse the date and time string into a datetime object
-        event_time = datetime.strptime(datetime_str, '%d-%m %H:%M')
+        # event_time = datetime.strptime(datetime_str, '%d-%m %H:%M')
 
         # Send the message to the chosen channel
-        await channel.send(f"Date and time set to: {event_time.strftime('%d-%m %H:%M')}")
+        await channel.send(f"Date and time set to: " + day+ending + " " + month + " at " + time)
 
         # Send confirmation message to user in channel that command is executed
         await ctx.response.send_message("Practice Scheduled")
