@@ -16,12 +16,14 @@ class Team:
 
         self.name = name.title()
         self.symbol = symbol
+        self.scheduleChannel = bot.channels.find("Schedule")
 
     def is_valid_team(self):
         return len(self.members) > 0 and self.captain != None
 
     def __str__(self):
         return self.name
+    
 
     def get_info_string(self) -> str:
         out = f"# {self.symbol} | {self.name}"
@@ -99,6 +101,9 @@ class Team:
 class Bot(commands.Bot):
     angelskar_guild:discord.Guild = None
     teams:dict[str, Team] = dict()
+
+    bot = commands.Bot(command_prefix='!')
+
 
     def start_bot(self):
         bot_settings.bot = self
@@ -212,6 +217,28 @@ bot = Bot(intents=discord.Intents.all(), command_prefix="/")
 @bot.command()
 async def hello(ctx):
     await ctx.send("Hello world.")
+
+@bot.event
+async def on_ready():
+    print(f'Logged in as {bot.user}')
+
+@bot.command()
+async def findchannel(ctx, category_name: str, channel_name: str):
+# Find the category by name
+    category = discord.utils.get(ctx.guild.categories, name=category_name)
+    
+    if category is None:
+        await ctx.send('Category not found.')
+        return
+
+# Find the channel in that category
+    channel = discord.utils.get(category.channels, name=channel_name)
+    
+    if channel is None:
+        await ctx.send('Channel not found in this category.')
+    else:
+        await ctx.send(f'Channel found: <#{channel.id}>')
+
 
 @bot.tree.command(name="help",description="Prints some information about the bot and available commands.")
 async def help(interaction:discord.Interaction):
