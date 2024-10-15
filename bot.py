@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 import bot_settings
 import os
-
+from datetime import datetime
 IS_ADMIN_COMMAND = "admin_command"
 
 class Team:
@@ -304,13 +304,23 @@ async def staff_channel(interaction:discord.Interaction, channel:discord.TextCha
         message = f"Linked the staff to channel {channel.mention}"
         await interaction.response.send_message(message)
 
-@bot.tree.command(name="createprac", description="Creates a new practice schedule")
-async def create_prac(interaction:discord.Interaction, channel:discord.TextChannel = None, date, time):
-    if channel:
-        await channel.send_message("New prac awaiting to be scheduled on " + date + "at " + time)
-    else:
-        await interaction.response.send_message("Unable to locate selected channel")
         
+async def create_prac(ctx,channel: discord.TextChannel, date: str, time: str):
+    # Combine the date and time strings into a single string for easier parsing
+    datetime_str =date +" " +time
+    
+    try:
+        # Try to parse the date and time string into a datetime object
+        event_time = datetime.strptime(datetime_str, '%d-%m %H:%M')
+
+        # Send the message to the chosen channel
+        await channel.send(f"Date and time set to: {event_time.strftime('%d-%m %H:%M')}")
+
+        # Send confirmation message to user in channel that command is executed
+        await ctx.response.send_message("Practice Scheduled")
+    except ValueError:
+        # Handle invalid input with an error message
+        await ctx.response.send_message("Invalid date or time format! Use the format `DD-MM HH:MM`.")
 
 @bot.event
 async def on_ready():
