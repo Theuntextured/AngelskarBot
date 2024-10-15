@@ -6,7 +6,7 @@ import os
 IS_ADMIN_COMMAND = "admin_command"
 
 class Team:
-    def __init__(self, name:str, symbol:str = "") -> None:
+    def __init__(self, name:str, symbol:str = "", category:discord.CategoryChannel = None) -> None:
         self.members = []
         self.tryouts = []
         self.standins = []
@@ -17,6 +17,12 @@ class Team:
 
         self.name = name.title()
         self.symbol = symbol
+
+        self.channel_category = category
+
+        for self.schedule_channel in category.text_channels:
+            if "schedule" in self.schedule_channel.name:
+                break
 
     def is_valid_team(self):
         return len(self.members) > 0 and self.captain != None
@@ -103,8 +109,6 @@ class Team:
 class Bot(commands.Bot):
     angelskar_guild:discord.Guild = None
     teams:dict[str, Team] = dict()
-
-
 
     def start_bot(self):
         bot_settings.bot = self
@@ -205,10 +209,10 @@ class Bot(commands.Bot):
 
         for i in team_names:
             i = i.lower()
-            for c in self.angelskar_guild.voice_channels or True:
+            for c in self.angelskar_guild.voice_channels:
                 if i in c.name.lower():
                     emote = c.name[0]
-                    new_team = Team(i, emote)
+                    new_team = Team(i, emote, c.category)
                     self.teams[i] = new_team
                     new_team.update_members()
                     break
@@ -284,13 +288,6 @@ async def staff_channel(interaction:discord.Interaction, channel:discord.TextCha
 
 @bot.tree.command(name="createprac", description="Creates a new practice schedule")
 async def create_prac(interaction:discord.Interaction, channel:discord.TextChannel = None):
-    category_name = '| Shankz |'  # Replace with the actual category name
-
-    category = discord.utils.get(bot.angelskar_guild.categories, name=category_name)
-    for schedule_channel in category.text_channels:
-        if "schedule" in schedule_channel.name:
-            break
-
     if channel:
         await interaction.response.send_message("New prac awaiting to be scheduled")
     else:
