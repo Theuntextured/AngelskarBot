@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
-import bot_settings
-from bot import bot
+
+bot:discord.Client = None
 
 
 
