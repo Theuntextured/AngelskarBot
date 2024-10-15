@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 import bot_settings
-import bot
+from bot import bot
 
 
 
