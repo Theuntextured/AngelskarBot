@@ -17,7 +17,6 @@ class Team:
 
         self.name = name.title()
         self.symbol = symbol
-        self.scheduleChannel = bot.channels.find("Schedule")
 
     def is_valid_team(self):
         return len(self.members) > 0 and self.captain != None
