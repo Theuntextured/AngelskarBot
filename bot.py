@@ -310,6 +310,7 @@ async def create_prac(interaction:discord.Interaction, channel:discord.TextChann
         await channel.send_message("New prac awaiting to be scheduled on " + date + "at " + time)
     else:
         await interaction.response.send_message("Unable to locate selected channel")
+        
 
 @bot.event
 async def on_ready():
