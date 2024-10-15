@@ -305,11 +305,11 @@ async def staff_channel(interaction:discord.Interaction, channel:discord.TextCha
         await interaction.response.send_message(message)
 
 @bot.tree.command(name="createprac", description="Creates a new practice schedule")
-async def create_prac(interaction:discord.Interaction, channel:discord.TextChannel = None):
+async def create_prac(interaction:discord.Interaction, channel:discord.TextChannel = None, date, time):
     if channel:
-        await interaction.response.send_message("New prac awaiting to be scheduled")
+        await channel.send_message("New prac awaiting to be scheduled on " + date + "at " + time)
     else:
-        await interaction.response.send_message("Unable to locate channel")
+        await interaction.response.send_message("Unable to locate selected channel")
 
 @bot.event
 async def on_ready():
