@@ -1,6 +1,8 @@
 import discord
 from discord.ext import commands
 import bot_settings
+import scheduling
+
 import os
 
 IS_ADMIN_COMMAND = "admin_command"
@@ -228,7 +230,6 @@ async def hello(ctx):
 async def on_ready():
     print(f'Logged in as {bot.user}')
 
-@bot.command()
 async def findchannel(ctx, category_name: str, channel_name: str):
 # Find the category by name
     category = discord.utils.get(ctx.guild.categories, name=category_name)

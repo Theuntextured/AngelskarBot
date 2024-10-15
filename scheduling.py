@@ -5,7 +5,7 @@ import bot
 
 
 
-@bot.command(name="createprac", description="Creates a new practice schedule")
+@bot.tree.command(name="createprac", description="Creates a new practice schedule")
 async def create_prac(ctx,interaction:discord.Interaction, channel:discord.TextChannel = None):
     category_name = '| Shankz |'  # Replace with the actual category name
     channel_name = '| schedule |'   # Replace with the actual channel name
