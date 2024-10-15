@@ -304,7 +304,8 @@ async def staff_channel(interaction:discord.Interaction, channel:discord.TextCha
         message = f"Linked the staff to channel {channel.mention}"
         await interaction.response.send_message(message)
 
-@bot.tree.command(name="createprac", description="Creates a new practice schedule")
+#temporarily disabled in the stable branch, since the command is incomplete.
+#@bot.tree.command(name="createprac", description="Creates a new practice schedule")
 async def create_prac(interaction:discord.Interaction, channel:discord.TextChannel = None):
     if channel:
         await interaction.response.send_message("New prac awaiting to be scheduled")
