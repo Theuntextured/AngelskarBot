@@ -2,6 +2,33 @@ import json
 import discord
 from pytz import all_timezones
 
+from datetime import datetime, timedelta, timezone
+import re
+
+
+def translate_to_datetime(text):
+    # Regular expression to match the input like "10 seconds" or "5 minutes"
+    text = text.strip().lower()
+    match = re.match(r"(\d+)\s*(seconds?|minutes?|hours?)", text)
+    if match:
+        value = int(match.group(1))  # Extract the numeric value
+        unit = match.group(2)  # Extract the unit (seconds, minutes, etc.)
+
+        # Determine the appropriate timedelta
+        if "second" in unit:
+            delta = timedelta(seconds=value)
+        elif "minute" in unit:
+            delta = timedelta(minutes=value)
+        elif "hour" in unit:
+            delta = timedelta(hours=value)
+        else:
+            raise ValueError("Unsupported time unit")
+
+        # Combine with current datetime
+        return datetime.now(timezone.utc) + delta
+    else:
+        raise ValueError("Invalid input format")
+
 
 capitals = {}
 
