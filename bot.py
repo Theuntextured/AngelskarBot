@@ -22,9 +22,6 @@ months = [
     "November",
     "December",
 ]
-with open("country-by-capital-city.json") as json_file:
-    json_data = json.load(json_file)
-
 
 class Team:
     def __init__(
