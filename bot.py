@@ -345,7 +345,7 @@ async def help(interaction: discord.Interaction):
     out = "# AngelSkar Bot Help\n[Source Code](<https://github.com/Theuntextured/AngelskarBot>)\n"
     out = out + "## Available Commands:\n"
     for c in bot.tree.get_commands():
-        can_run = await c.interaction_check
+        can_run = await c.interaction_check(interaction)
         if can_run:
             out = out + f"* `/{c.name}`: {c.description}\n"
     await interaction.response.send_message(out)
