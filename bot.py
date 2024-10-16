@@ -5,17 +5,14 @@ import os
 import pytz
 from datetime import datetime
 import json
-import capitals
+import util
+from practice import Practice
 
 IS_ADMIN_COMMAND = "admin_command"
 months = ["January","February","March","April","May","June","July","August","September","October","November","December"]
 with open("country-by-capital-city.json") as json_file:
     json_data = json.load(json_file)
 
-class Practice:
-    def __init__(self, date_time:datetime, ping_stand_ins:bool):
-        self.datetime = date_time
-        self.ping_stand_ins = ping_stand_ins
 
 class Team:
     def __init__(self, name:str, symbol:str = "", category:discord.CategoryChannel = None) -> None:
@@ -301,7 +298,8 @@ async def help(interaction:discord.Interaction):
             out = out + f"* `/{c.name}`: {c.description}\n"
     await interaction.response.send_message(out)
 
-@bot.tree.command(name="logchannel", description="Displays or sets the log channel to use", extras={IS_ADMIN_COMMAND: True})
+@bot.tree.command(name="logchannel", description="Displays or sets the log channel to use.", extras={IS_ADMIN_COMMAND: True})
+@discord.app_commands.checks.has_permissions(manage_guild=True)
 async def log_channel(interaction:discord.Interaction, channel:discord.TextChannel = None):
     if channel == None:
         c = bot.bot_settings.get_log_channel()
@@ -358,7 +356,8 @@ async def staff_channel(interaction:discord.Interaction, channel:discord.TextCha
         await interaction.response.send_message(message)
 
 @bot.tree.command(name="createprac", description="Schedule a practice session.")
-@discord.app_commands.autocomplete(timezone=capitals.time_zone_autocomplete)
+@discord.app_commands.autocomplete(timezone=util.time_zone_autocomplete)
+@discord.app_commands.rename(pingstandins="ping-stand-ins", timezone="time-zone")
 #@discord.app_commands.choices(timezone=[discord.Choice(name=tz, value=id) for id, tz in enumerate(pytz.all_timezones)])
 @discord.app_commands.describe(
     date="In format DD-MM-YYYY", 
