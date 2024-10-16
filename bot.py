@@ -7,8 +7,6 @@ from datetime import datetime
 import json
 import capitals
 
-print(len(pytz.all_timezones))
-
 IS_ADMIN_COMMAND = "admin_command"
 months = ["January","February","March","April","May","June","July","August","September","October","November","December"]
 with open("country-by-capital-city.json") as json_file:
@@ -65,7 +63,7 @@ class Team:
         return self.name 
 
     def get_info_string(self) -> str:
-        out = f"# {self.symbol} | {self.name}\n{self.schedule_channel.name if self.schedule_channel.name is not None else ""}"
+        out = f"# {self.symbol} | {self.name}"
 
         if not self.is_valid_team():
             return out
