@@ -4,9 +4,13 @@ import bot_settings
 import os
 import pytz
 from datetime import datetime
+import json
+
 
 IS_ADMIN_COMMAND = "admin_command"
 months = ["January","February","March","April","May","June","July","August","September","October","November","December"]
+with open("country-by-capital-city.json") as json_file:
+    json_data = json.load(json_file)
 
 class Team:
     def __init__(self, name:str, symbol:str = "", category:discord.CategoryChannel = None) -> None:
@@ -308,18 +312,37 @@ async def staff_channel(interaction:discord.Interaction, channel:discord.TextCha
         await interaction.response.send_message(message)
 
 @bot.tree.command(name="createprac", description="Schedule a practice session.")
-async def create_prac(ctx, channel: discord.TextChannel, date: str, time: str, timezone: str, role: discord.Role):
+async def create_prac(ctx, channel: discord.TextChannel, date: str, time: str, country: str, role: discord.Role):
     # Split the date and time strings for parsing
     datestr = date.split("-")
     day = datestr[0]
     timed = time.split(":")
     hours = int(timed[0])
     minutes = int(timed[1])
+    with open('locations.json', 'r') as f:
+        return json.load(f)
+    locations = load_locations()
+
+    # Search for the country in the list of dictionaries
+    for location in locations:
+        if location['country'].lower() == country.lower():  # Case-insensitive match
+            print(f"The capital city of {country} is {location['city']}.")
+            return
+    
+    # If the country was not found, return an error message
+    print(f"Sorry, I don't have data for the country: {country}.")
+    timezone = f"{region}/{country}"
     # month = months[int(datestr[1])-1]
 
 
     try:
-        naive_datetime = datetime(int(datestr[2]), int(datestr[1]), int(day), hours, minutes)
+        try:
+            year = datestr[2]
+            naive_datetime = datetime(int(datestr[2]), int(datestr[1]), int(day), hours, minutes)
+        except:
+            ctx.response.send_message("Invalid Date Format, please use DD-MM-YYYY")
+
+
         try:
             user_timezone = pytz.timezone(timezone)
         except:
