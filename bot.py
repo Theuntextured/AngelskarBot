@@ -5,12 +5,19 @@ import os
 import pytz
 from datetime import datetime
 import json
+import capitals
 
+print(len(pytz.all_timezones))
 
 IS_ADMIN_COMMAND = "admin_command"
 months = ["January","February","March","April","May","June","July","August","September","October","November","December"]
 with open("country-by-capital-city.json") as json_file:
     json_data = json.load(json_file)
+
+class Practice:
+    def __init__(self, date_time:datetime, ping_stand_ins:bool):
+        self.datetime = date_time
+        self.ping_stand_ins = ping_stand_ins
 
 class Team:
     def __init__(self, name:str, symbol:str = "", category:discord.CategoryChannel = None) -> None:
@@ -25,11 +32,31 @@ class Team:
         self.name = name.title()
         self.symbol = symbol
 
+        self.stand_in_role = discord.utils.get(bot.angelskar_guild.roles, name=f"{self.name} Stand-in")
+        self.tryout_role = discord.utils.get(bot.angelskar_guild.roles, name=f"{self.name} Tryout")
+        self.captain_role = discord.utils.get(bot.angelskar_guild.roles, name=f"{self.name} Captain")
+        self.vice_captain_role = discord.utils.get(bot.angelskar_guild.roles, name=f"{self.name} Vice-Captain")
+        self.guest_role = discord.utils.get(bot.angelskar_guild.roles, name=f"{self.name} Guest")
+        self.coach_role = discord.utils.get(bot.angelskar_guild.roles, name=f"{self.name} Coach")
+        self.player_role = discord.utils.get(bot.angelskar_guild.roles, name=f"AngelSkar {self.name}")
+
+        self.roles = {
+            "player" : self.player_role,
+            "captain" : self.captain_role,
+            "vice-captain" : self.vice_captain_role,
+            "stand-in" : self.vice_captain_role,
+            "tryout" : self.tryout_role,
+            "coach" : self.coach_role,
+            "guest" : self.guest_role
+            }
+
         self.channel_category = category
 
         for self.schedule_channel in category.text_channels:
             if "schedule" in self.schedule_channel.name:
                 break
+
+        self.practices = []
 
     def is_valid_team(self):
         return len(self.members) > 0 and self.captain != None
@@ -38,7 +65,7 @@ class Team:
         return self.name 
 
     def get_info_string(self) -> str:
-        out = f"# {self.symbol} | {self.name}"
+        out = f"# {self.symbol} | {self.name}\n{self.schedule_channel.name if self.schedule_channel.name is not None else ""}"
 
         if not self.is_valid_team():
             return out
@@ -81,37 +108,49 @@ class Team:
         self.coach = None
 
         try:
-            m = discord.utils.get(bot.angelskar_guild.roles, name=self.name + " Captain").members
+            m = self.captain_role.members
             self.captain = m[0]
         except:
             pass
         try:
-            m = discord.utils.get(bot.angelskar_guild.roles, name=self.name + " Vice-Captain").members
+            m = self.vice_captain_role.members
             self.vice_captain = m[0]
         except:
             pass
         try:
-            m = discord.utils.get(bot.angelskar_guild.roles, name=self.name + " Coach").members
+            m = self.coach_role.members
             self.coach = m[0]
         except:
             pass
         try:
-            self.members = sorted(discord.utils.get(bot.angelskar_guild.roles, name= "AngelSkar " + self.name).members, key = lambda item : item.display_name)
+            self.members = sorted(self.player_role.members, key = lambda item : item.display_name)
         except:
             self.members = []
         try:
-            self.standins = sorted(discord.utils.get(bot.angelskar_guild.roles, name= self.name + " Stand-in").members.copy(), key = lambda item : item.display_name)
+            self.standins = sorted(self.stand_in_role.members.copy(), key = lambda item : item.display_name)
         except:
             self.standins = []
         try:
-            self.tryouts = sorted(discord.utils.get(bot.angelskar_guild.roles, name= self.name + " Tryout").members.copy(), key = lambda item : item.display_name)
+            self.tryouts = sorted(self.tryout_role.members.copy(), key = lambda item : item.display_name)
         except:
             self.tryouts = []
 
         try:
-            self.guest_count = len(discord.utils.get(bot.angelskar_guild.roles, name= self.name + " Guest").members)
+            self.guest_count = len(self.guest_role.members)
         except:
             self.guest_count = 0
+
+    def get_mention(self, include_stand_ins = False) -> str:
+        out = ""
+        out = out + self.player_role.mention
+        if len(self.tryout_role.members) > 0:
+            out = out + " " + self.tryout_role.mention
+
+        if include_stand_ins:
+            if len(self.stand_in_role.members) > 0:
+                out = out + " " + self.tryout_role.mention
+
+        return out
 
 class Bot(commands.Bot):
     angelskar_guild:discord.Guild = None
@@ -246,6 +285,15 @@ class Bot(commands.Bot):
 
 bot = Bot(intents=discord.Intents.all(), command_prefix="/")
 
+def get_team_from_user(user:discord.Member) -> Team:
+
+    for i in ["player", "coach", "stand-in", "tryout"]:
+        for t in bot.teams.values():
+            if t.roles[i] in user.roles:
+                return t
+            
+    return None
+
 @bot.tree.command(name="help",description="Prints some information about the bot and available commands.")
 async def help(interaction:discord.Interaction):
     out = "# AngelSkar Bot Help\n[Source Code](<https://github.com/Theuntextured/AngelskarBot>)\n"
@@ -312,59 +360,63 @@ async def staff_channel(interaction:discord.Interaction, channel:discord.TextCha
         await interaction.response.send_message(message)
 
 @bot.tree.command(name="createprac", description="Schedule a practice session.")
-async def create_prac(ctx, channel: discord.TextChannel, date: str, time: str, country: str, role: discord.Role):
+@discord.app_commands.autocomplete(timezone=capitals.time_zone_autocomplete)
+#@discord.app_commands.choices(timezone=[discord.Choice(name=tz, value=id) for id, tz in enumerate(pytz.all_timezones)])
+@discord.app_commands.describe(
+    date="In format DD-MM-YYYY", 
+    time="In format HH::MM (24 hour clock)", 
+    timezone="What timezone is the specified time in? Default is CET/CEST",
+    pingstandins="Whether or not to ping the stand-ins of the team.")
+async def create_prac(interaction:discord.Interaction, date: str, time: str, timezone: str = "Europe/Amsterdam", pingstandins:bool = False):
     # Split the date and time strings for parsing
-    datestr = date.split("-")
+    team = get_team_from_user(interaction.user)
+    if team is None:
+        interaction.response.send_message("You cannot create practice because you are not part of a team.")
+
+    channel = team.schedule_channel
+
+    datestr = date.replace("/", "-").replace(".", "-").replace(":", "-").replace(" ", "-").split("-")
     day = datestr[0]
-    timed = time.split(":")
+    timed = time.replace(".", ":").split(":")
     hours = int(timed[0])
     minutes = int(timed[1])
-    with open('locations.json', 'r') as f:
-        return json.load(f)
-    locations = load_locations()
-
-    # Search for the country in the list of dictionaries
-    for location in locations:
-        if location['country'].lower() == country.lower():  # Case-insensitive match
-            print(f"The capital city of {country} is {location['city']}.")
-            return
     
-    # If the country was not found, return an error message
-    print(f"Sorry, I don't have data for the country: {country}.")
-    timezone = f"{region}/{country}"
+
     # month = months[int(datestr[1])-1]
 
 
     try:
         try:
-            year = datestr[2]
             naive_datetime = datetime(int(datestr[2]), int(datestr[1]), int(day), hours, minutes)
         except:
-            ctx.response.send_message("Invalid Date Format, please use DD-MM-YYYY")
+            await interaction.response.send_message("Invalid Date Format, please use DD-MM-YYYY")
+            return
 
 
         try:
             user_timezone = pytz.timezone(timezone)
         except:
-            await ctx.response.send_message("Invalid timezone! Please use the format `Europe/London` etc, and a valid timezone.")
+            await interaction.response.send_message("Invalid timezone!")
+            return
         localized_datetime = user_timezone.localize(naive_datetime)
         
         utc_datetime = localized_datetime.astimezone(pytz.utc)
+
+        team.practices.append(Practice(utc_datetime, pingstandins))
         
         # Generate the timestamp for Discord formatting
         timestamp = int(utc_datetime.timestamp())
         
         # Send the message to the chosen channel with the converted timestamp
-        await channel.send(f"{role.mention} Practice Scheduled for: <t:{timestamp}:F>")
+        await channel.send(f"{team.get_mention(pingstandins)} Practice Scheduled for: <t:{timestamp}:F>")
         
         # Send confirmation message to the user who ran the command
-        await ctx.response.send_message(f"{role.mention} Practice successfully scheduled for {localized_datetime.strftime('%d %B %Y %H:%M %Z')} (your local time).")
+        await interaction.response.send_message(f" Practice successfully scheduled for {team.name} at <t:{timestamp}:F> ({timezone} time).")
     
     except ValueError:
         # Handle invalid date, time, or timezone input
-        await ctx.response.send_message("Invalid date, time, or timezone format! Please use the format `DD-MM-YYYY HH:MM` and a valid timezone.")
-
-
+        await interaction.response.send_message("Invalid date, time, or timezone format! Please use the format `DD-MM-YYYY HH:MM` and a valid timezone.")
+        return
 
 @bot.event
 async def on_ready():
