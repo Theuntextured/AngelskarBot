@@ -345,7 +345,13 @@ async def help(interaction: discord.Interaction):
     out = "# AngelSkar Bot Help\n[Source Code](<https://github.com/Theuntextured/AngelskarBot>)\n"
     out = out + "## Available Commands:\n"
     for c in bot.tree.get_commands():
-        can_run = await c.interaction_check(interaction)
+        can_run = True
+        for check in c.checks:
+            try:
+                check(interaction)
+            except:
+                can_run = False
+                break
         if can_run:
             out = out + f"* `/{c.name}`: {c.description}\n"
     await interaction.response.send_message(out)
@@ -442,17 +448,17 @@ async def staff_channel(
         message = f"Linked the staff to channel {channel.mention}"
         await interaction.response.send_message(message)
 
-#command is removed in stable, since it does not do anything.
-#@bot.tree.command(name="createprac", description="Schedule a practice session.")
-#@discord.app_commands.autocomplete(timezone=util.time_zone_autocomplete)
-#@discord.app_commands.rename(pingstandins="ping-stand-ins", timezone="time-zone")
+# command is removed in stable, since it does not do anything.
+# @bot.tree.command(name="createprac", description="Schedule a practice session.")
+# @discord.app_commands.autocomplete(timezone=util.time_zone_autocomplete)
+# @discord.app_commands.rename(pingstandins="ping-stand-ins", timezone="time-zone")
 # @discord.app_commands.choices(timezone=[discord.Choice(name=tz, value=id) for id, tz in enumerate(pytz.all_timezones)])
-#@discord.app_commands.describe(
+# @discord.app_commands.describe(
 #    date="In format DD-MM-YYYY",
 #    time="In format HH::MM (24 hour clock)",
 #    timezone="What timezone is the specified time in? Default is CET/CEST",
 #    pingstandins="Whether or not to ping the stand-ins of the team.",
-#)
+# )
 async def create_prac(
     interaction: discord.Interaction,
     date: str,
