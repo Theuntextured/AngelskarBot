@@ -30,6 +30,7 @@ def translate_to_datetime(text:str):
     else:
         raise ValueError("Invalid input format")
 
+
 capitals = {}
 
 with open("country-by-capital-city.json", "r", encoding="utf-8") as file:
@@ -37,6 +38,7 @@ with open("country-by-capital-city.json", "r", encoding="utf-8") as file:
         if i["city"] is None:
             continue
         capitals[i["country"]] = i["city"]
+
 
 premier_ranks = {
     "Premier 30.000+": "Tier7",
@@ -74,6 +76,7 @@ def setup_rank_emojis(bot:discord.Client):
                 continue
             faceit_ranks[key] = f"<:{value}:{e.id}>"
 
+
 def get_emoji_id_from_name(bot: discord.Client, name: str) -> (int | None):
     name = name.lower()
     for e in bot.emojis:
@@ -81,6 +84,7 @@ def get_emoji_id_from_name(bot: discord.Client, name: str) -> (int | None):
             continue
         return e.id
     return None
+
 
 def get_emoji_from_name(bot: discord.Client, name: str) -> (str | None):
     name = name.lower()
@@ -90,11 +94,13 @@ def get_emoji_from_name(bot: discord.Client, name: str) -> (str | None):
         return f"<:{name}:{e.id}>"
     return None
 
+
 country_emojis = {}
 
 with open("country_emojis.json", "r", encoding="utf-8")  as file:
     for i in json.loads(file.read()):
-        country_emojis[i["name"]] = f":flag_{i["code"].lower()}:"
+        country_emojis[i['name']] = f":flag_{i['code'].lower()}:"
+
 
 def get_member_country_emoji(member: discord.Member) -> str:
     for i in member.roles:
@@ -103,6 +109,7 @@ def get_member_country_emoji(member: discord.Member) -> str:
         return country_emojis[i.name]
     return "🇪🇺"
 
+
 def get_member_faceit_emoji(member: discord.Member) -> str:
     for r in member.roles:
         if r.name not in faceit_ranks:
@@ -110,12 +117,14 @@ def get_member_faceit_emoji(member: discord.Member) -> str:
         return faceit_ranks[r.name]
     return UNKNOWN_RANK
 
+
 def get_member_premier_emoji(member: discord.Member) -> str:
     for r in member.roles:
         if r.name not in premier_ranks:
             continue
         return premier_ranks[r.name]
     return UNKNOWN_RANK
+
 
 def get_member_display_rank_flag(member: discord.Member) -> str:
     return f"{get_member_country_emoji(member)} | {get_member_faceit_emoji(member)} | {get_member_premier_emoji(member)} | {member.display_name}"
@@ -141,5 +150,6 @@ async def time_zone_autocomplete(
                 if capital.lower() in k.lower():
                     out.append(discord.app_commands.Choice(name=k, value=k))
                     break
-            
+
     return out
+

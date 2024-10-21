@@ -1,6 +1,5 @@
 from bot import *
 
-
 @bot.event
 async def on_ready():
     await bot.tree.sync()
@@ -39,3 +38,11 @@ async def on_guild_update(before: discord.Guild, after: discord.Guild):
         return
     await bot.update_teams()
     await bot.update_staff_channel()
+
+
+@bot.tree.error
+async def on_error(interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
+    try:
+        await interaction.response.send_message(error.args[0])
+    except:
+        pass
