@@ -4,7 +4,6 @@ import bot_settings
 import os
 import pytz
 from datetime import datetime
-import json
 import util
 from practice import Practice
 
@@ -20,7 +19,7 @@ months = [
     "September",
     "October",
     "November",
-    "December",
+    "December"
 ]
 
 class Team:
@@ -90,27 +89,27 @@ class Team:
         if not self.is_valid_team():
             return out
 
-        out = f"{out}\n* {self.captain.display_name} **(Captain)**"
+        out = f"{out}\n* {util.get_member_display_rank_flag(self.captain)} **(Captain)**"
         if self.vice_captain != None:
-            out = f"{out}\n* {self.vice_captain.display_name} **(Vice-Captain)**"
+            out = f"{out}\n* {util.get_member_display_rank_flag(self.vice_captain)} **(Vice-Captain)**"
 
         for m in self.members:
             if m == self.captain or m == self.vice_captain:
                 continue
-            out = f"{out}\n* {m.display_name}"
+            out = f"{out}\n* {util.get_member_display_rank_flag(m)}"
 
         out = out + "\n"
 
         if len(self.tryouts) > 0:
             out = f"{out}\n **Tryouts:**"
             for m in self.tryouts:
-                out = f"{out}\n* {m.display_name}"
+                out = f"{out}\n* {util.get_member_display_rank_flag(m)}"
             out = out + "\n"
 
         if len(self.standins) > 0:
             out = f"{out}\n **Stand-ins:**"
             for m in self.standins:
-                out = f"{out}\n* {m.display_name}"
+                out = f"{out}\n* {util.get_member_display_rank_flag(m)}"
             out = out + "\n"
 
         if self.guest_count > 0:
@@ -178,7 +177,6 @@ class Team:
 
         return out
 
-
 class Bot(commands.Bot):
     angelskar_guild: discord.Guild = None
     teams: dict[str, Team] = dict()
@@ -211,20 +209,24 @@ class Bot(commands.Bot):
         if channel == None:
             return
 
-        await self.get_last_message(channel)
-        last_message = self.target_message
-
         to_send = "# **__ROSTERS__**\n\n"
 
+        await channel.purge(limit=10, check=lambda m: m.author == bot.user)
         for t in sorted(self.teams.values(), key=lambda e: e.name):
             if t.is_valid_team():
                 to_send = to_send + t.get_info_string() + "\n"
 
-        if last_message and last_message.author == self.user:
-            await last_message.edit(to_send)
-        else:
-            await channel.purge(limit=10, check=lambda m: m.author == bot.user)
-            await channel.send(to_send)
+        current_iteration = ""
+        for s in to_send.split("\n"):
+            if len(current_iteration) + len(s) > 2000:
+                await channel.send(current_iteration)
+                current_iteration = s
+                continue
+            
+            current_iteration = current_iteration + "\n" + s
+        
+        if current_iteration != "":
+            await channel.send(current_iteration)
 
     async def update_staff_channel(self):
         channel: discord.TextChannel = self.bot_settings.get_staff_channel()
@@ -315,7 +317,9 @@ class Bot(commands.Bot):
             i = i.lower()
             for c in self.angelskar_guild.voice_channels:
                 if i in c.name.lower():
-                    emote = c.name[0]
+                    emote = util.get_emoji_from_name(self, i)
+                    if emote is None:
+                        emote = c.name[0]
                     new_team = Team(i, emote, c.category)
                     self.teams[i] = new_team
                     new_team.update_members()
@@ -323,11 +327,9 @@ class Bot(commands.Bot):
 
         await self.update_roster_channel()
 
-
 bot = Bot(intents=discord.Intents.all(), command_prefix="/")
 
-
-def get_team_from_user(user: discord.Member) -> Team:
+def get_team_from_user(user: discord.Member) -> (Team | None):
 
     for i in ["player", "coach", "stand-in", "tryout"]:
         for t in bot.teams.values():
@@ -335,274 +337,3 @@ def get_team_from_user(user: discord.Member) -> Team:
                 return t
 
     return None
-
-
-@bot.tree.command(
-    name="help",
-    description="Prints some information about the bot and available commands.",
-)
-async def help(interaction: discord.Interaction):
-    out = "# AngelSkar Bot Help\n[Source Code](<https://github.com/Theuntextured/AngelskarBot>)\n"
-    out = out + "## Available Commands:\n"
-    for c in bot.tree.get_commands():
-        can_run = True
-        for check in c.checks:
-            try:
-                check(interaction)
-            except:
-                can_run = False
-                break
-        if can_run:
-            out = out + f"* `/{c.name}`: {c.description}\n"
-    await interaction.response.send_message(out)
-
-
-@bot.tree.command(
-    name="logchannel", description="Displays or sets the log channel to use."
-)
-@discord.app_commands.checks.has_permissions(manage_guild=True)
-async def log_channel(
-    interaction: discord.Interaction, channel: discord.TextChannel = None
-):
-    if channel == None:
-        c = bot.bot_settings.get_log_channel()
-        if c == None:
-            await interaction.response.send_message(
-                "The log channel is currently not linked."
-            )
-        else:
-            await interaction.response.send_message(
-                f"The log channel is currently linked to {c.mention}"
-            )
-    else:
-        if not interaction.permissions.manage_guild:
-            await interaction.response.send_message(
-                "Insufficient permissions to run the command."
-            )
-            return
-        bot.bot_settings.set_log_channel(channel)
-
-        message = f"Linked the log to channel {channel.mention}"
-        await interaction.response.send_message(message)
-        await channel.send(message)
-
-
-@bot.tree.command(
-    name="rosterchannel",
-    description="Displays the roster channel to use. If you have the required permissions, you can set it.",
-)
-async def roster_channel(
-    interaction: discord.Interaction, channel: discord.TextChannel = None
-):
-    if channel == None:
-        c = bot.bot_settings.get_roster_channel()
-        if c == None:
-            await interaction.response.send_message(
-                "The roster channel is currently not linked."
-            )
-        else:
-            await interaction.response.send_message(
-                f"The roster channel is currently linked to {c.mention}"
-            )
-    else:
-        if not interaction.permissions.manage_guild:
-            await interaction.response.send_message(
-                "Insufficient permissions to run the command."
-            )
-            return
-
-        bot.bot_settings.set_roster_channel(channel)
-        await bot.update_roster_channel()
-
-        message = f"Linked the roster to channel {channel.mention}"
-        await interaction.response.send_message(message)
-
-
-@bot.tree.command(
-    name="staffchannel",
-    description="Displays the staff channel to use. If you have the required permissions, you can set it.",
-)
-async def staff_channel(
-    interaction: discord.Interaction, channel: discord.TextChannel = None
-):
-    if channel == None:
-        c = bot.bot_settings.get_staff_channel()
-        if c == None:
-            await interaction.response.send_message(
-                "The staff channel is currently not linked."
-            )
-        else:
-            await interaction.response.send_message(
-                f"The staff channel is currently linked to {c.mention}"
-            )
-    else:
-        if not interaction.permissions.manage_guild:
-            await interaction.response.send_message(
-                "Insufficient permissions to run the command."
-            )
-            return
-
-        bot.bot_settings.set_staff_channel(channel)
-        await bot.update_staff_channel()
-
-        message = f"Linked the staff to channel {channel.mention}"
-        await interaction.response.send_message(message)
-
-# command is removed in stable, since it does not do anything.
-# @bot.tree.command(name="createprac", description="Schedule a practice session.")
-# @discord.app_commands.autocomplete(timezone=util.time_zone_autocomplete)
-# @discord.app_commands.rename(pingstandins="ping-stand-ins", timezone="time-zone")
-# @discord.app_commands.choices(timezone=[discord.Choice(name=tz, value=id) for id, tz in enumerate(pytz.all_timezones)])
-# @discord.app_commands.describe(
-#    date="In format DD-MM-YYYY",
-#    time="In format HH::MM (24 hour clock)",
-#    timezone="What timezone is the specified time in? Default is CET/CEST",
-#    pingstandins="Whether or not to ping the stand-ins of the team.",
-# )
-async def create_prac(
-    interaction: discord.Interaction,
-    date: str,
-    time: str,
-    timezone: str = "Europe/Amsterdam",
-    pingstandins: bool = False,
-):
-    # Split the date and time strings for parsing
-    team = get_team_from_user(interaction.user)
-    if team is None:
-        interaction.response.send_message(
-            "You cannot create practice because you are not part of a team."
-        )
-
-    channel = team.schedule_channel
-
-    datestr = (
-        date.replace("/", "-")
-        .replace(".", "-")
-        .replace(":", "-")
-        .replace(" ", "-")
-        .split("-")
-    )
-    day = datestr[0]
-    timed = time.replace(".", ":").split(":")
-    hours = int(timed[0])
-    minutes = int(timed[1])
-
-    # month = months[int(datestr[1])-1]
-
-    try:
-        try:
-            naive_datetime = datetime(
-                int(datestr[2]), int(datestr[1]), int(day), hours, minutes
-            )
-        except:
-            await interaction.response.send_message(
-                "Invalid Date Format, please use DD-MM-YYYY"
-            )
-            return
-
-        try:
-            user_timezone = pytz.timezone(timezone)
-        except:
-            await interaction.response.send_message("Invalid timezone!")
-            return
-        localized_datetime = user_timezone.localize(naive_datetime)
-
-        utc_datetime = localized_datetime.astimezone(pytz.utc)
-
-        team.practices.append(Practice(utc_datetime, pingstandins))
-
-        # Generate the timestamp for Discord formatting
-        timestamp = int(utc_datetime.timestamp())
-
-        # Send the message to the chosen channel with the converted timestamp
-        await channel.send(
-            f"{team.get_mention(pingstandins)} Practice Scheduled for: <t:{timestamp}:F>"
-        )
-
-        # Send confirmation message to the user who ran the command
-        await interaction.response.send_message(
-            f" Practice successfully scheduled for {team.name} at <t:{timestamp}:F> ({timezone} time)."
-        )
-
-    except ValueError:
-        # Handle invalid date, time, or timezone input
-        await interaction.response.send_message(
-            "Invalid date, time, or timezone format! Please use the format `DD-MM-YYYY HH:MM` and a valid timezone."
-        )
-        return
-
-
-@bot.tree.command(name="timeout", description="Timeouts a user.")
-@discord.app_commands.checks.has_permissions(moderate_members=True)
-async def timeout(
-    interaction: discord.Interaction,
-    user: discord.Member,
-    duration: str,
-    reason: str = "Unspecified reason.",
-):
-    if not interaction.permissions.moderate_members:
-        interaction.response.send_message("Insufficient permissions.")
-        return
-    try:
-        until = util.translate_to_datetime(duration)
-    except:
-        interaction.response.send_message("The duration was invalid.")
-        return
-
-    try:
-        await user.timeout(until, reason=reason)
-    except:
-        await interaction.response.send_message("Bot has insufficient permissions.")
-        return
-
-    await interaction.response.send_message(
-        f"Successfully timed out {user.display_name} for {duration.lower()} with the reason:\n> {reason}"
-    )
-
-    try:
-        await user.send(
-            f"You have been timed out for {duration} with the following reason:\n> {reason}"
-        )
-    except:
-        await interaction.response.send_message(
-            f"{user.mention} You have been timed out for {duration} with the following reason:\n> {reason}"
-        )
-
-@bot.event
-async def on_ready():
-    await bot.tree.sync()
-    await bot.log_message("Bot started!")
-    bot.angelskar_guild = discord.utils.get(bot.guilds, id=1049126797465362523)
-
-    await bot.update_teams()
-    await bot.update_staff_channel()
-
-
-@bot.event
-async def on_member_update(before: discord.Member, after: discord.Member):
-
-    # inefficient but fuck you
-    if before.roles == after.roles:
-        return
-    for t in bot.teams.values():
-        t.update_members()
-    await bot.update_roster_channel()
-    await bot.update_staff_channel()
-
-
-@bot.event
-async def on_member_remove(member: discord.Member):
-    for t in bot.teams.values():
-        t.update_members()
-    await bot.update_roster_channel()
-    await bot.update_staff_channel()
-
-
-@bot.event
-async def on_guild_update(before: discord.Guild, after: discord.Guild):
-    # inefficient but fuck you
-    # voice channels are used to determine the symbol of the team
-    if before.roles == after.roles and before.voice_channels == after.voice_channels:
-        return
-    await bot.update_teams()
-    await bot.update_staff_channel()
