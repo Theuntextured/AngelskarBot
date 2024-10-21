@@ -1,4 +1,10 @@
 from bot import *
+from typing import Callable
+from PIL import Image, UnidentifiedImageError
+import requests
+from io import BytesIO
+from discord.app_commands.errors import CheckFailure
+import pytz
 
 @bot.tree.command(
     name="help",
@@ -126,15 +132,35 @@ async def get_team_info(interaction: discord.Interaction, team: str):
     await interaction.response.send_message(bot.teams[team].get_info_string())
 
 
-from PIL import Image, UnidentifiedImageError
-import requests
-from io import BytesIO
+class NotCaptain(CheckFailure):
+    def __init__(self) -> None:
+        message = f"You are not a captain of any team, which is required to run this command."
+        super().__init__(message)
+
+
+def is_captain(include_vice_captain:bool = False) -> Callable[[discord.app_commands.checks.T], discord.app_commands.checks.T]:
+
+    def predicate(interaction: discord.Interaction) -> bool:
+        team = get_team_from_user(interaction.user)
+        if team is None:
+            raise NotCaptain()
+            return False
+        if team.captain == interaction.user:
+            return True
+        if team.vice_captaincaptain == interaction.user and include_vice_captain:
+            return True
+
+        raise NotCaptain
+        return False
+
+    return discord.app_commands.commands.check(predicate)
 
 
 @bot.tree.command(
     name="registerteamlogo",
     description="Register a new team logo. Make sure to embed an image to this command.",
 )
+@is_captain(True)
 async def register_team_logo(interaction: discord.Interaction, image_link: str):
     team = get_team_from_user(interaction.user)
 

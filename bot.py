@@ -2,10 +2,10 @@ import discord
 from discord.ext import commands
 import bot_settings
 import os
-import pytz
 from datetime import datetime
 import util
 from practice import Practice
+
 
 months = [
     "January",
@@ -222,9 +222,9 @@ class Bot(commands.Bot):
                 await channel.send(current_iteration)
                 current_iteration = s
                 continue
-            
+
             current_iteration = current_iteration + "\n" + s
-        
+
         if current_iteration != "":
             await channel.send(current_iteration)
 
