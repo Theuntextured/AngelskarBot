@@ -1,35 +1,68 @@
 from bot import *
-from typing import Callable
 from PIL import Image, UnidentifiedImageError
 import requests
 from io import BytesIO
-from discord.app_commands.errors import CheckFailure
 import pytz
+from command_decorators import *
+from datetime import datetime
+from practice import Practice
+
 
 @bot.tree.command(
     name="help",
     description="Prints some information about the bot and available commands.",
 )
-async def help(interaction: discord.Interaction):
-    out = "# AngelSkar Bot Help\n[Source Code](<https://github.com/Theuntextured/AngelskarBot>)\n"
-    out = out + "## Available Commands:\n"
-    for c in bot.tree.get_commands():
-        can_run = True
-        for check in c.checks:
-            try:
-                check(interaction)
-            except:
-                can_run = False
-                break
-        if can_run:
-            out = out + f"* `/{c.name}`: {c.description}\n"
+@discord.app_commands.describe(command="The command to get help with.")
+@discord.app_commands.autocomplete(command=command_list_autocomplete)
+async def help(interaction: discord.Interaction, command: str = None):
+    if command is None:
+        out = "# AngelSkar Bot Help\n[Source Code](<https://github.com/Theuntextured/AngelskarBot>)\n"
+        out = out + "## Available Commands:\n"
+        for c in bot.tree.get_commands():
+            can_run = True
+            for check in c.checks:
+                try:
+                    check(interaction)
+                except:
+                    can_run = False
+                    break
+            if can_run:
+                out = out + f"* `/{c.name}`: {c.description}\n"
+        await interaction.response.send_message(out)
+        return
+
+    command = command.lower().strip()
+    desired_command = bot.tree.get_command(command)
+    if desired_command is None:
+        await interaction.response.send_message(f"`{command}` is not a valid command.")
+        return
+
+    out = f"## `/{desired_command.name}`\n**{desired_command.description}**\n"
+
+    can_run = True
+    for check in desired_command.checks:
+        try:
+            check(interaction)
+        except:
+            can_run = False
+            break
+
+    if not can_run:
+        out = f"{out}(You cannot run this command.)\n"
+
+    out = f"{out}## Parameters:"
+    for p in desired_command.parameters:
+        out = f"{out}\n* {p.name}: {p.description} {'' if p.required else '(optional)'}"
+
     await interaction.response.send_message(out)
 
 
 @bot.tree.command(
     name="logchannel", description="Displays or sets the log channel to use."
 )
+@discord.app_commands.describe(channel="The channel that should be set to be the staff display channel.")
 @discord.app_commands.checks.has_permissions(manage_guild=True)
+@discord.app_commands.describe(channel="The channel that should be set to be the log display channel.")
 async def log_channel(
     interaction: discord.Interaction, channel: discord.TextChannel = None
 ):
@@ -60,6 +93,7 @@ async def log_channel(
     name="rosterchannel",
     description="Displays the roster channel to use. If you have the required permissions, you can set it.",
 )
+@discord.app_commands.describe(channel="The channel that should be set to be the roster display channel.")
 async def roster_channel(
     interaction: discord.Interaction, channel: discord.TextChannel = None
 ):
@@ -91,6 +125,7 @@ async def roster_channel(
     name="staffchannel",
     description="Displays the staff channel to use. If you have the required permissions, you can set it.",
 )
+@discord.app_commands.describe(channel="The channel that should be set to be the staff display channel.")
 async def staff_channel(
     interaction: discord.Interaction, channel: discord.TextChannel = None
 ):
@@ -122,6 +157,7 @@ async def staff_channel(
     name="team",
     description="Displays information about a specific team.",
 )
+@discord.app_commands.describe(team="The desired team.")
 async def get_team_info(interaction: discord.Interaction, team: str):
     team = team.lower()
 
@@ -132,34 +168,11 @@ async def get_team_info(interaction: discord.Interaction, team: str):
     await interaction.response.send_message(bot.teams[team].get_info_string())
 
 
-class NotCaptain(CheckFailure):
-    def __init__(self) -> None:
-        message = f"You are not a captain of any team, which is required to run this command."
-        super().__init__(message)
-
-
-def is_captain(include_vice_captain:bool = False) -> Callable[[discord.app_commands.checks.T], discord.app_commands.checks.T]:
-
-    def predicate(interaction: discord.Interaction) -> bool:
-        team = get_team_from_user(interaction.user)
-        if team is None:
-            raise NotCaptain()
-            return False
-        if team.captain == interaction.user:
-            return True
-        if team.vice_captaincaptain == interaction.user and include_vice_captain:
-            return True
-
-        raise NotCaptain
-        return False
-
-    return discord.app_commands.commands.check(predicate)
-
-
 @bot.tree.command(
     name="registerteamlogo",
     description="Register a new team logo. Make sure to embed an image to this command.",
 )
+@discord.app_commands.describe(image_link="The url containing the image. The image will be resized to 128x128 when uploading it to Discord.")
 @is_captain(True)
 async def register_team_logo(interaction: discord.Interaction, image_link: str):
     team = get_team_from_user(interaction.user)
@@ -198,20 +211,17 @@ async def register_team_logo(interaction: discord.Interaction, image_link: str):
     await bot.update_teams()
 
 
-# command is removed in stable, since it does not do anything.
-"""
 @bot.tree.command(name="createprac", description="Schedule a practice session.")
-@discord.app_commands.autocomplete(timezone=util.time_zone_autocomplete)
+@discord.app_commands.autocomplete(timezone=time_zone_autocomplete)
 @discord.app_commands.rename(pingstandins="ping-stand-ins", timezone="time-zone")
-@discord.app_commands.choices(timezone=[discord.Choice(name=tz, value=id) for id, tz in enumerate(pytz.all_timezones)])
 @discord.app_commands.describe(
     date="In format DD-MM-YYYY",
     time="In format HH::MM (24 hour clock)",
     timezone="What timezone is the specified time in? Default is CET/CEST",
     pingstandins="Whether or not to ping the stand-ins of the team.",
-    )"""
-
-
+    )
+@is_captain(True)
+@is_developer()
 async def create_prac(
     interaction: discord.Interaction,
     date: str,
@@ -225,25 +235,21 @@ async def create_prac(
         interaction.response.send_message(
             "You cannot create practice because you are not part of a team."
         )
+    try:    
+        channel = team.schedule_channel
 
-    channel = team.schedule_channel
-
-    datestr = (
-        date.replace("/", "-")
-        .replace(".", "-")
-        .replace(":", "-")
-        .replace(" ", "-")
-        .split("-")
-    )
-    day = datestr[0]
-    timed = time.replace(".", ":").split(":")
-    hours = int(timed[0])
-    minutes = int(timed[1])
-
-    # month = months[int(datestr[1])-1]
-
-    try:
+        datestr = (
+            date.replace("/", "-")
+            .replace(".", "-")
+            .replace(":", "-")
+            .replace(" ", "-")
+            .split("-")
+        )
+        timed = time.replace(".", ":").split(":")
+        hours = int(timed[0])
+        minutes = int(timed[1])
         try:
+            day = datestr[0]
             naive_datetime = datetime(
                 int(datestr[2]), int(datestr[1]), int(day), hours, minutes
             )
@@ -262,7 +268,7 @@ async def create_prac(
 
         utc_datetime = localized_datetime.astimezone(pytz.utc)
 
-        team.practices.append(Practice(utc_datetime, pingstandins))
+        team.practices.append(Practice(utc_datetime, pingstandins, team))
 
         # Generate the timestamp for Discord formatting
         timestamp = int(utc_datetime.timestamp())
@@ -286,6 +292,9 @@ async def create_prac(
 
 
 @bot.tree.command(name="timeout", description="Timeouts a user.")
+@discord.app_commands.describe(user="The member to time out.", 
+                               duration="How long to time out the user for.", 
+                               reason="The reason for the timeout. This will be communicated to the user.")
 @discord.app_commands.checks.has_permissions(moderate_members=True)
 async def timeout(
     interaction: discord.Interaction,

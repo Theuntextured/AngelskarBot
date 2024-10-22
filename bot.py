@@ -2,9 +2,7 @@ import discord
 from discord.ext import commands
 import bot_settings
 import os
-from datetime import datetime
 import util
-from practice import Practice
 
 
 months = [
@@ -73,6 +71,10 @@ class Team:
 
         for self.schedule_channel in category.text_channels:
             if "schedule" in self.schedule_channel.name:
+                break
+
+        for self.info_channel in category.text_channels:
+            if "info" in self.schedule_channel.name:
                 break
 
         self.practices = []
