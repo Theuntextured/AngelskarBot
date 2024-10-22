@@ -1,10 +1,9 @@
 import json
 import discord
-from pytz import all_timezones
-
+from threading import Timer
 from datetime import datetime, timedelta, timezone
 import re
-
+import asyncio
 
 def translate_to_datetime(text:str):
     # Regular expression to match the input like "10 days", "10 seconds", or "5 minutes"
@@ -130,26 +129,54 @@ def get_member_display_rank_flag(member: discord.Member) -> str:
     return f"{get_member_country_emoji(member)} | {get_member_faceit_emoji(member)} | {get_member_premier_emoji(member)} | {member.display_name}"
 
 
-async def time_zone_autocomplete(
-    interaction: discord.Interaction,
-    current: str,
-) -> list[discord.app_commands.Choice[str]]:
+class TimerByFunction(object):
 
-    c = current.lower()
-    out = []
+    def __init__(self, interval: float, repeating: bool, function, *args, **kwargs):
+        self._timer     = None
+        self.interval   = interval
+        self.function   = function
+        self.args       = args
+        self.kwargs     = kwargs
+        self.is_running = False
+        self.repeating = repeating
+        self.start()
+    
+    def _run(self):
+        self.is_running = False
+        if self.repeating:
+            self.start()
+        self.function(*self.args, **self.kwargs)
+    
+    def start(self):
+        if not self.is_running:
+            self._timer = Timer(self.interval, self._run)
+            self._timer.start()
+            self.is_running = True
+    
+    def stop(self):
+        self._timer.cancel()
+        self.is_running = False
 
-    for i in all_timezones:
-        if c in i.lower():
-            out.append(discord.app_commands.Choice(name=i, value=i))
-            if len(out) == 25:
-                return out
 
-    for country, capital in capitals.items():
-        if c in country.lower():
-            for k in all_timezones:
-                if capital.lower() in k.lower():
-                    out.append(discord.app_commands.Choice(name=k, value=k))
-                    break
+class ScheduleByFunction(object):
+    def __init__(self, time:datetime, function, *args, **kwargs):
+        self.time = time
+        self.function = function
+        self.args = args
+        self.kwargs = kwargs
+        self.is_running = False
 
-    return out
+    async def start_checking(self):
+        self.is_running = True
+        while self.is_running:
+            await self._check_should_run()
+            await asyncio.sleep(60)
+        del self
+    
+    async def _check_should_run(self):
+        if datetime.now(timezone.utc) > self.time:
+            await self.function(*self.args, **self.kwargs)
+            self.is_running = False
 
+    def stop(self):
+        self.is_running = False

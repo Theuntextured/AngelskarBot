@@ -1,31 +1,11 @@
 from bot import *
-from typing import Callable
 from PIL import Image, UnidentifiedImageError
 import requests
 from io import BytesIO
-from discord.app_commands.errors import CheckFailure
 import pytz
-
-
-async def command_list_autocomplete(
-    interaction: discord.Interaction,
-    current: str,
-) -> list[discord.app_commands.Choice[str]]:
-    current = current.lower().strip()
-    out = []
-    for c in bot.tree.get_commands():
-        if current not in c.name:
-            continue
-        can_run = True
-        for check in c.checks:
-            try:
-                check(interaction)
-            except:
-                can_run = False
-                break
-        if can_run:
-            out.append(discord.app_commands.Choice(name=c.name, value=c.name))
-    return out
+from command_decorators import *
+from datetime import datetime
+from practice import Practice
 
 
 @bot.tree.command(
@@ -188,34 +168,6 @@ async def get_team_info(interaction: discord.Interaction, team: str):
     await interaction.response.send_message(bot.teams[team].get_info_string())
 
 
-class NotCaptain(CheckFailure):
-    def __init__(self) -> None:
-        message = (
-            f"You are not a captain of any team, which is required to run this command."
-        )
-        super().__init__(message)
-
-
-def is_captain(
-    include_vice_captain: bool = False,
-) -> Callable[[discord.app_commands.checks.T], discord.app_commands.checks.T]:
-
-    def predicate(interaction: discord.Interaction) -> bool:
-        team = get_team_from_user(interaction.user)
-        if team is None:
-            raise NotCaptain()
-            return False
-        if team.captain == interaction.user:
-            return True
-        if team.vice_captaincaptain == interaction.user and include_vice_captain:
-            return True
-
-        raise NotCaptain
-        return False
-
-    return discord.app_commands.commands.check(predicate)
-
-
 @bot.tree.command(
     name="registerteamlogo",
     description="Register a new team logo. Make sure to embed an image to this command.",
@@ -259,20 +211,17 @@ async def register_team_logo(interaction: discord.Interaction, image_link: str):
     await bot.update_teams()
 
 
-# command is removed in stable, since it does not do anything.
-"""
 @bot.tree.command(name="createprac", description="Schedule a practice session.")
-@discord.app_commands.autocomplete(timezone=util.time_zone_autocomplete)
+@discord.app_commands.autocomplete(timezone=time_zone_autocomplete)
 @discord.app_commands.rename(pingstandins="ping-stand-ins", timezone="time-zone")
-@discord.app_commands.choices(timezone=[discord.Choice(name=tz, value=id) for id, tz in enumerate(pytz.all_timezones)])
 @discord.app_commands.describe(
     date="In format DD-MM-YYYY",
     time="In format HH::MM (24 hour clock)",
     timezone="What timezone is the specified time in? Default is CET/CEST",
     pingstandins="Whether or not to ping the stand-ins of the team.",
-    )"""
-
-
+    )
+@is_captain(True)
+@is_developer()
 async def create_prac(
     interaction: discord.Interaction,
     date: str,
@@ -286,25 +235,21 @@ async def create_prac(
         interaction.response.send_message(
             "You cannot create practice because you are not part of a team."
         )
+    try:    
+        channel = team.schedule_channel
 
-    channel = team.schedule_channel
-
-    datestr = (
-        date.replace("/", "-")
-        .replace(".", "-")
-        .replace(":", "-")
-        .replace(" ", "-")
-        .split("-")
-    )
-    day = datestr[0]
-    timed = time.replace(".", ":").split(":")
-    hours = int(timed[0])
-    minutes = int(timed[1])
-
-    # month = months[int(datestr[1])-1]
-
-    try:
+        datestr = (
+            date.replace("/", "-")
+            .replace(".", "-")
+            .replace(":", "-")
+            .replace(" ", "-")
+            .split("-")
+        )
+        timed = time.replace(".", ":").split(":")
+        hours = int(timed[0])
+        minutes = int(timed[1])
         try:
+            day = datestr[0]
             naive_datetime = datetime(
                 int(datestr[2]), int(datestr[1]), int(day), hours, minutes
             )
@@ -323,7 +268,7 @@ async def create_prac(
 
         utc_datetime = localized_datetime.astimezone(pytz.utc)
 
-        team.practices.append(Practice(utc_datetime, pingstandins))
+        team.practices.append(Practice(utc_datetime, pingstandins, team))
 
         # Generate the timestamp for Discord formatting
         timestamp = int(utc_datetime.timestamp())
