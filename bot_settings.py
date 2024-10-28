@@ -1,10 +1,10 @@
-import pickle
 import discord
+from sql_link import link as sql_link
 
-bot:discord.Client = None
+bot:discord.Client|None = None
 
-DATA_FILE = "bot_data.pickle"
 
+# noinspection SqlNoDataSourceInspection
 class BotSettings:
     def __init__(self):
         self.log_channel = -1
@@ -12,9 +12,10 @@ class BotSettings:
         self.staff_channel = -1
 
     def save(self):
-        global DATA_FILE
-        with open(DATA_FILE, "wb") as file:
-            pickle.dump(self, file)
+        sql_link.cursor.execute(f"UPDATE bot_settings SET value = {self.log_channel} WHERE setting = 'log_channel';")
+        sql_link.cursor.execute(f"UPDATE bot_settings SET value = {self.staff_channel} WHERE setting = 'staff_channel';")
+        sql_link.cursor.execute(f"UPDATE bot_settings SET value = {self.roster_channel} WHERE setting = 'roster_channel';")
+        sql_link.database.commit()
 
     def get_log_channel(self) -> discord.TextChannel:
         return bot.get_channel(self.log_channel)
@@ -40,11 +41,16 @@ class BotSettings:
         return True
 
 
-def load():
+def load() -> BotSettings:
     try:
-        global DATA_FILE
-        with open(DATA_FILE, "rb") as infile:
-            return pickle.load(infile)
+        out = BotSettings()
+        sql_link.cursor.execute("SELECT value FROM bot_settings WHERE setting = 'log_channel';")
+        out.log_channel = int(sql_link.cursor.fetchone()[0])
+        sql_link.cursor.execute("SELECT value FROM bot_settings WHERE setting = 'staff_channel';")
+        out.staff_channel = int(sql_link.cursor.fetchone()[0])
+        sql_link.cursor.execute("SELECT value FROM bot_settings WHERE setting = 'roster_channel';")
+        out.roster_channel = int(sql_link.cursor.fetchone()[0])
+        return out
     except Exception as e:
         print(e)
         print("Error in loading settings. Restoring default.")
