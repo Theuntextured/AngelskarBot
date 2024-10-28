@@ -47,7 +47,7 @@ class SQLLink:
   }
 ]
                 for s in settings:
-                    self.settings[i["name"]] = s["value"]
+                    self.settings[s["name"]] = s["value"]
                 print("Retreived database settings via environment variables.")
             except Exception as E:
                 print(E)
