@@ -3,6 +3,9 @@ from discord.ext import commands
 import bot_settings
 import os
 import util
+from practice import Practice
+from sql_link import link as sql_link
+import datetime
 
 
 months = [
@@ -78,6 +81,12 @@ class Team:
                 break
 
         self.practices = []
+
+        sql_link.cursor.execute(f"SELECT datetime, ping_stand_ins FROM practices WHERE team = '{self.name}'")
+
+        for (date_time, ping_stand_ins) in sql_link.cursor.fetchall():
+            self.practices.append(Practice(datetime.datetime.fromtimestamp(date_time, datetime.UTC), bool(ping_stand_ins), self, True))
+
 
     def is_valid_team(self):
         return len(self.members) > 0 and self.captain != None

@@ -64,11 +64,8 @@ class SQLLink:
 
         self.cursor = self.database.cursor()
 
+        self.cursor.execute("USE bzrthya0vj19yk6mpuf2")
+
         self.is_initialized = True
 
-        self.cursor.execute("CREATE DATABASE BotSettings")
-
-        self.cursor.execute("SHOW DATABASE")
-
-        for x in self.cursor:
-            print("Database found: ", x)
+link = SQLLink()

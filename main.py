@@ -4,11 +4,6 @@ import webserver
 import commands
 import events
 
-import sql_link
-x = sql_link.SQLLink()
-print("EXITING")
-exit()
-
 if __name__ == "__main__":
     print("Starting...")
     webserver.keep_alive()
