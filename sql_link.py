@@ -6,16 +6,17 @@ class SQLLink:
     def __init__(self):
         self.is_initialized = False
 
+        self.settings = {}
+
         print("Initializing SQLLink")
         try:
-            self.settings = {}
             with open("database_settings.json", "r") as file:
                 for i in json.load(file):
                     self.settings[i["name"]] = i["value"]
                 print("Retrieved database settings via file.")
         except FileNotFoundError:
             try:
-                self.settings = [
+                settings = [
   {
     "name": "MYSQL_ADDON_DB",
     "value": os.environ["MYSQL_ADDON_DB"]
@@ -45,6 +46,8 @@ class SQLLink:
     "value": os.environ["MYSQL_ADDON_VERSION"]
   }
 ]
+                for s in settings:
+                    self.settings[i["name"]] = s["value"]
                 print("Retreived database settings via environment variables.")
             except Exception as E:
                 print(E)
