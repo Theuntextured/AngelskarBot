@@ -40,7 +40,7 @@ class BotSettings:
         return True
 
 
-def load():
+def load() -> BotSettings:
     try:
         global DATA_FILE
         with open(DATA_FILE, "rb") as infile:
