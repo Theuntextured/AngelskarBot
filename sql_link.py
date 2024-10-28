@@ -60,6 +60,7 @@ class SQLLink:
             print("Database successfully connected.")
         except Exception as e:
             print(e)
+            print("Could not connect to the database.")
             return
 
         self.cursor = self.database.cursor()
