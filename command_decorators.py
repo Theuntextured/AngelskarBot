@@ -98,7 +98,7 @@ def is_developer() -> Callable[[discord.app_commands.checks.T], discord.app_comm
 async def teams_autocomplete(interaction: discord.Interaction, current: str) -> list[discord.app_commands.Choice[str]]:
     out = []
     for t in bot.teams:
-        if not bot.teams[t].is_developer():
+        if not bot.teams[t].is_valid_team():
             continue
         if current.lower().strip() in t:
             out.append(discord.app_commands.Choice(name=t.title(), value=t.title()))
