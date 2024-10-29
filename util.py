@@ -1,9 +1,12 @@
 import json
 import discord
 from threading import Timer
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, UTC
 import re
 import asyncio
+
+def get_utc_now():
+    return datetime.now(UTC)
 
 def translate_to_datetime(text:str):
     # Regular expression to match the input like "10 days", "10 seconds", or "5 minutes"

@@ -93,3 +93,15 @@ def is_developer() -> Callable[[discord.app_commands.checks.T], discord.app_comm
         return True
 
     return discord.app_commands.commands.check(predicate)
+
+
+async def teams_autocomplete(interaction: discord.Interaction, current: str) -> list[discord.app_commands.Choice[str]]:
+    out = []
+    for t in bot.teams:
+        if not bot.teams[t].is_developer():
+            continue
+        if current.lower().strip() in t:
+            out.append(discord.app_commands.Choice(name=t.title(), value=t.title()))
+            if len(out) == 25:
+                return out
+    return out

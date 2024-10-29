@@ -218,10 +218,9 @@ async def register_team_logo(interaction: discord.Interaction, image_link: str):
     date="In format DD-MM-YYYY",
     time="In format HH::MM (24 hour clock)",
     timezone="What timezone is the specified time in? Default is CET/CEST",
-    pingstandins="Whether or not to ping the stand-ins of the team.",
+    pingstandins="Whether or not to ping the stand-ins of the team. Default is False.",
     )
 @is_captain(True)
-@is_developer()
 async def create_prac(
     interaction: discord.Interaction,
     date: str,
@@ -268,6 +267,15 @@ async def create_prac(
 
         utc_datetime = localized_datetime.astimezone(pytz.utc)
 
+        if utc_datetime <= datetime.datetime.now(datetime.UTC):
+            await interaction.response.send_message("You cannot create a practice session in the past.")
+            return
+
+        for p in team.practices:
+            if utc_datetime == p.datetime:
+                await interaction.response.send_message("A practice session for this time already exists.")
+                return
+
         team.practices.append(Practice(utc_datetime, pingstandins, team))
 
         # Generate the timestamp for Discord formatting
@@ -289,6 +297,52 @@ async def create_prac(
             "Invalid date, time, or timezone format! Please use the format `DD-MM-YYYY HH:MM` and a valid timezone."
         )
         return
+
+
+@bot.tree.command(name="pracs", description="Displays the list of practice sessions.")
+@discord.app_commands.autocomplete(team=teams_autocomplete)
+@discord.app_commands.describe(team="What team's practice sessions to list. The default is your own, if you have one.")
+async def prac_list(interaction:discord.Interaction, team: str = None):
+    try:
+        if team is None:
+            team_object = get_team_from_user(interaction.user)
+        else:
+            team_object = bot.teams[team.strip().lower()]
+    except:
+        await interaction.response.send_message("Invalid team name!")
+        return
+    if team_object is None:
+        await interaction.response.send_message("You are not part of any team. Please specify what team's practices you want to list.")
+        return
+
+    if len(team_object.practices) == 0:
+        await interaction.response.send_message(f"Team {team_object.name.title()} has no scheduled practices.")
+
+    out_str = f"Team {team_object.name.title()} has the following practice sessions:\n"
+
+    for i, p in enumerate(team_object.practices):
+        out_str += f"* {i}: <t:{int(p.datetime.timestamp())}:F> (<t:{int(p.datetime.timestamp())}:R>)\n"
+
+    await interaction.response.send_message(out_str)
+
+
+@bot.tree.command(name="deleteprac", description="Deletes a practice session.")
+@discord.app_commands.describe(index = "What practice session to delete. Do /pracs to view the indices of the practice sessions.")
+@is_captain(True)
+async def delete_prac(interaction:discord.Interaction, index: int):
+    team = get_team_from_user(interaction.user)
+    if team is None:
+        await interaction.response.send_message("You cannot delete practice because you are not part of a team.")
+        return
+    try:
+        team.practices[index].safe_delete()
+    except:
+        await interaction.response.send_message("The index you inserted is not valid.")
+        return
+
+    await interaction.response.send_message("Successfully deleted the practice session.")
+
+
 
 
 @bot.tree.command(name="timeout", description="Timeouts a user.")
