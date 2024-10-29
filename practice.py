@@ -31,6 +31,8 @@ class Practice:
     def safe_delete(self):
         try:
             self.team.practices.remove(self)
+            sql_link.cursor.execute(f"DELETE FROM practices WHERE (team = '{self.team.name}' and datetime = {int(self.datetime.timestamp())})")
+            sql_link.database.commit()
 
         finally:
             del self
