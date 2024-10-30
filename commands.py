@@ -267,7 +267,7 @@ async def create_prac(
 
         utc_datetime = localized_datetime.astimezone(pytz.utc)
 
-        if utc_datetime <= datetime.datetime.now(datetime.UTC):
+        if utc_datetime <= datetime.now(datetime.UTC):
             await interaction.response.send_message("You cannot create a practice session in the past.")
             return
 
