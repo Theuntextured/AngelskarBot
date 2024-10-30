@@ -1,10 +1,11 @@
+import util
 from bot import *
 from PIL import Image, UnidentifiedImageError
 import requests
 from io import BytesIO
 import pytz
 from command_decorators import *
-from datetime import datetime
+from datetime import datetime, UTC
 from practice import Practice
 
 
@@ -267,7 +268,7 @@ async def create_prac(
 
         utc_datetime = localized_datetime.astimezone(pytz.utc)
 
-        if utc_datetime <= datetime.now(datetime.UTC):
+        if utc_datetime <= util.get_utc_now():
             await interaction.response.send_message("You cannot create a practice session in the past.")
             return
 
