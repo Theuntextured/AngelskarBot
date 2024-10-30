@@ -184,7 +184,7 @@ class Team:
 
         if include_stand_ins:
             if len(self.stand_in_role.members) > 0:
-                out = out + " " + self.tryout_role.mention
+                out = out + " " + self.stand_in_role.mention
 
         return out
 
