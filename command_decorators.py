@@ -23,7 +23,7 @@ def is_captain(
             return False
         if team.captain == interaction.user:
             return True
-        if team.vice_captaincaptain == interaction.user and include_vice_captain:
+        if team.vice_captain == interaction.user and include_vice_captain:
             return True
 
         raise NotCaptain
