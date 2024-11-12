@@ -34,6 +34,7 @@ class Team:
         self.vice_captain = None
         self.coach = None
         self.guest_count = 0
+        self.schedule_channel = None
 
         self.name = name.title()
         self.symbol = symbol

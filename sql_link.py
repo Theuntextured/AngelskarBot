@@ -72,4 +72,9 @@ class SQLLink:
 
         self.is_initialized = True
 
-link = SQLLink()
+try:
+    link = SQLLink()
+except Exception as e:
+    print(e)
+    print("STOPPING")
+    quit()
