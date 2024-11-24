@@ -2,6 +2,8 @@ import discord
 from discord.ext import commands
 import bot_settings
 import os
+
+import sql_link
 import util
 from practice import Practice
 from sql_link import link as sql_link
@@ -195,13 +197,6 @@ class Bot(commands.Bot):
     # used to return value from get_last_message since the function returns coro
     target_message = None
 
-    async def get_last_message(self, channel: discord.TextChannel):
-        l = [message async for message in channel.history(limit=5)]
-        for i in l:
-            if i.author == self.user:
-                self.target_message = i
-        self.target_message = None
-
     def start_bot(self):
         bot_settings.bot = self
         self.bot_settings = bot_settings.load()
@@ -221,24 +216,58 @@ class Bot(commands.Bot):
         if channel == None:
             return
 
-        to_send = "# **__ROSTERS__**\n\n"
+        sql_link.cursor.execute("SELECT MessageID FROM Messages WHERE Type = 'Teams' ORDER BY Num")
+        message_ids = sql_link.cursor.fetchall()
+        messages = []
+        for message_id in message_ids:
+            latest = await channel.fetch_message(message_id[0])
+            messages.append(latest)
+            if latest is None:
+                messages.clear()
+                sql_link.cursor.execute("DELETE FROM Messages WHERE Type = 'Teams'")
+                sql_link.database.commit()
+                await channel.purge(limit=100)
+                break
 
-        await channel.purge(limit=10, check=lambda m: m.author == bot.user)
+        if len(messages) == 0:
+            await channel.purge(limit=100)
+
+        sent_title = False
+        index = -1
+        new_messages = []
+
         for t in sorted(self.teams.values(), key=lambda e: e.name):
             if t.is_valid_team():
-                to_send = to_send + t.get_info_string() + "\n"
+                index += 1
+                to_send = t.get_info_string()
 
-        current_iteration = ""
-        for s in to_send.split("\n"):
-            if len(current_iteration) + len(s) > 2000:
-                await channel.send(current_iteration)
-                current_iteration = s
-                continue
+                if not sent_title:
+                    to_send = "# **__ROSTERS__**\n\n" + to_send
+                    sent_title = True
 
-            current_iteration = current_iteration + "\n" + s
+                if len(messages) <= index:
+                    new_messages.append(await channel.send(to_send))
+                else:
+                    await messages[index].edit(content=to_send)
 
-        if current_iteration != "":
-            await channel.send(current_iteration)
+        if index == len(messages) + 1:
+            return
+
+        if index < len(messages):
+            sql_link.cursor.execute(f"DELETE FROM Messages WHERE Type = 'Teams' AND Num > {index}")
+            sql_link.database.commit()
+            index += 1
+            while index < len(messages):
+                await messages[index].delete()
+
+            sql_link.database.commit()
+            return
+
+        index = len(messages)
+        for new_message in new_messages:
+            sql_link.cursor.execute(f"INSERT INTO Messages VALUES ({new_message.id}, {index}, 'Teams')")
+
+        sql_link.database.commit()
 
     async def update_staff_channel(self):
         channel: discord.TextChannel = self.bot_settings.get_staff_channel()
@@ -293,14 +322,25 @@ class Bot(commands.Bot):
                         to_send = to_send + staff[u][i] + ", "
                     to_send = to_send[:-2] + ")_"
 
-        await self.get_last_message(channel)
-        last_message = self.target_message
 
-        if last_message and last_message.author == self.user:
-            last_message.edit(to_send)
-        else:
-            await channel.purge(limit=10, check=lambda m: m.author == bot.user)
-            await channel.send(to_send)
+        sql_link.cursor.execute("SELECT MessageID FROM Messages WHERE Type = 'Staff' ORDER BY Num")
+        message_ids = sql_link.cursor.fetchall()
+        message_to_edit = None
+        for message_id in message_ids:
+            message_to_edit = await channel.fetch_message(message_id[0])
+            break
+
+        if message_to_edit is None:
+            sql_link.cursor.execute("DELETE FROM Messages WHERE Type = 'Staff'")
+            sql_link.database.commit()
+            await channel.purge(limit=100)
+
+            message_to_edit = await channel.send(to_send)
+            sql_link.cursor.execute(f"INSERT INTO Messages VALUES ({message_to_edit.id}, 0, 'Staff')")
+            sql_link.database.commit()
+            return
+
+        await message_to_edit.edit(content=to_send)
 
     async def log_message(self, message: str) -> bool:
         if len(message) == 0:
