@@ -212,6 +212,13 @@ async def register_team_logo(interaction: discord.Interaction, image_link: str):
     await bot.update_teams()
 
 
+@bot.tree.command(description="Stops the bot. Dev command only.")
+@is_developer()
+async def stop(interaction: discord.Interaction):
+    await interaction.response.send_message("Stopping bot.")
+    print("Bot stopped via command.")
+    quit()
+
 @bot.tree.command(name="createprac", description="Schedule a practice session.")
 @discord.app_commands.autocomplete(timezone=time_zone_autocomplete)
 @discord.app_commands.rename(pingstandins="ping-stand-ins", timezone="time-zone")
