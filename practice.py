@@ -6,6 +6,7 @@ from sql_link import link as sql_link
 
 class Practice:
     def __init__(self, date_time: datetime, ping_stand_ins: bool, team, loaded_in = False):
+        self.cancelled = False
         self.datetime = date_time
         self.ping_stand_ins = ping_stand_ins
         self.team = team
@@ -31,6 +32,7 @@ class Practice:
     def safe_delete(self):
         try:
             self.team.practices.remove(self)
+            self.cancelled = True
             sql_link.cursor.execute(f"DELETE FROM practices WHERE (team = '{self.team.name}' and datetime = {int(self.datetime.timestamp())})")
             sql_link.database.commit()
 
@@ -38,13 +40,18 @@ class Practice:
             del self
 
     async def post_hour_reminder(self):
+        if self.cancelled:
+            return
         timestamp = int(self.datetime.timestamp())
-        await self.team.info_channel.send(f"{self.team.get_mention(self.ping_stand_ins)} Remember about the scheduled practice <t:{timestamp}:R>! (at <t:{timestamp}:t>)")
+        await self.team.schedule_channel.send(f"{self.team.get_mention(self.ping_stand_ins)} Remember about the scheduled practice <t:{timestamp}:R>! (at <t:{timestamp}:t>)")
 
     async def post_now_reminder(self):
-        await self.team.info_channel.send(f"{self.team.get_mention(self.ping_stand_ins)} Join the voice channel! It is time for team practice!")
+        if self.cancelled:
+            return
+        await self.team.schedule_channel.send(f"{self.team.get_mention(self.ping_stand_ins)} Join the voice channel! It is time for team practice!")
         self.safe_delete()
 
     async def cancel_practice(self):
+        self.cancelled = True
         timestamp = int(self.datetime.timestamp())
-        await self.team.info_channel.send(f"Team practice on <t:{timestamp}:F> has been cancelled.")
+        await self.team.schedule_channel.send(f"Team practice on <t:{timestamp}:F> has been cancelled.")
